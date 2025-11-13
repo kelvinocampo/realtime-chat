@@ -3,6 +3,8 @@
 import { getClientId } from "@/helper/getClientId";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import Logo from './icon.png'
 
 // --- Tipos ---
 interface Chat {
@@ -111,9 +113,20 @@ export default function ChatsPage() {
 
   return (
     <main className="flex flex-col gap-8 justify-center items-center min-h-screen bg-linear-to-br from-indigo-500 to-purple-600 p-6 text-black">
-      <h1 className="text-4xl font-extrabold text-white tracking-wide">
-        💬 Tus Espacios de Chat
-      </h1>
+      <div className="flex items-center gap-3 text-4xl font-extrabold text-white tracking-wide">
+        <div className="bg-white p-2 rounded">
+          <Image
+            src={Logo}
+            alt="Logo del sitio"
+            width={60}  // puedes ajustar el tamaño
+            height={60}
+            priority
+            className="rounded"
+          />
+        </div>
+        <h1>Tus Espacios de Chat</h1>
+      </div>
+
 
       <div className="w-full max-w-lg bg-white p-8 rounded-3xl shadow-2xl">
 
