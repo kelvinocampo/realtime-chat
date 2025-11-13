@@ -3,6 +3,7 @@
 import { getClientId } from "@/helper/getClientId";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { v4 as uuidv4 } from "uuid";
 import Image from "next/image";
 import Logo from './icon.png'
 
@@ -63,6 +64,12 @@ export default function ChatsPage() {
       setChats(JSON.parse(saved));
     }
   }, []);
+
+  const generateCode = () => {
+    const newUuid = uuidv4();
+    setCode(newUuid);
+    setError(null); // Limpiar errores si el código se genera
+  };
 
   // 2. 🔹 Guardar lista en localStorage (memorizado para optimización)
   const updateStorage = useCallback((newChats: Chat[]) => {
@@ -141,13 +148,47 @@ export default function ChatsPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
-            <input
+            {/* <input
               type="text"
               placeholder="Código o ID único del chat (Ej. PROYECTO-45)"
               className="border border-gray-300 rounded-xl p-3 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow"
               value={code}
               onChange={(e) => setCode(e.target.value)}
-            />
+            /> */}
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Código o ID único del chat (Ej. PROYECTO-45)"
+                className="border border-gray-300 rounded-xl p-3 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow w-full font-mono text-sm"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+              />
+              <button
+                type="button" // Es importante que sea 'button' para evitar enviar el formulario
+                onClick={generateCode}
+                title="Generar código UUID automáticamente"
+                className="bg-gray-200 cursor-pointer text-gray-700 font-semibold text-xs rounded-xl hover:bg-gray-300 transition duration-200 px-3 py-2 flex items-center justify-center whitespace-nowrap"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="lucide lucide-dice"
+                >
+                  <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                  <path d="M16 8h.01" />
+                  <path d="M8 16h.01" />
+                  <path d="M12 12h.01" />
+                </svg>
+              </button>
+            </div>
             {error && (
               <p className="text-red-500 text-sm font-medium bg-red-50 p-2 rounded-lg border border-red-200">
                 {error}

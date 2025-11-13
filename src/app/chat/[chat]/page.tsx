@@ -158,8 +158,6 @@ export default function ChatPage() {
   const sendMessage = () => {
     const currentSocket = socketRef.current;
 
-    console.log('a');
-
     // 1. Verificación Inicial: Debe haber contenido (texto, imagen, o audio) para enviar.
     if ((!message.trim() && !imageFile && !audioBlob) || !currentSocket) {
       return;
