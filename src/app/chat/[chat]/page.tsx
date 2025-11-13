@@ -187,12 +187,12 @@ export default function ChatPage() {
                       </div>
                     )}
                     {/* 🖼️ MOSTRAR IMAGEN (si existe) */}
-                    <img
+                    {msg.image && (<img
                       src={msg.image}
                       alt="Mensaje con imagen"
                       className="rounded-lg max-w-full min-h-20 h-auto"
                       style={{ maxHeight: '200px' }}
-                    />
+                    />)}
 
                     {/* Mostrar texto solo si existe o si no hay imagen (para evitar un espacio vacío) */}
                     {msg.message.trim() || !msg.image ? (
