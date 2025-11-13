@@ -71,6 +71,17 @@ export default function ChatsPage() {
     setError(null); // Limpiar errores si el código se genera
   };
 
+  const copyToClipboard = async (code: string) => {
+    setError(null);
+
+    try {
+      await navigator.clipboard.writeText(code);
+    } catch (err) {
+      console.error('Error al copiar el código al portapapeles:', err);
+      setError("❌ Error al copiar al portapapeles. El código se generó, pero debe copiarlo manualmente.");
+    }
+  };
+
   // 2. 🔹 Guardar lista en localStorage (memorizado para optimización)
   const updateStorage = useCallback((newChats: Chat[]) => {
     setChats(newChats);
@@ -225,6 +236,28 @@ export default function ChatsPage() {
                     <span className="font-bold text-lg text-indigo-700 truncate">{chat.name}</span>
                     <span className="text-xs text-gray-500 font-mono mt-0.5">{chat.code}</span>
                   </div>
+                  {/* Nuevo Botón de Copiar con SVG simplificado */}
+                  <button
+                    onClick={() => copyToClipboard(chat.code)}
+                    className="text-gray-500 cursor-pointer hover:text-indigo-600 p-2 rounded-full hover:bg-gray-100 transition duration-150 ml-4 flex items-center justify-center"
+                    aria-label={`Copiar código de chat ${chat.name}`}
+                    title="Copiar código al portapapeles"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-6 w-6"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      {/* Ícono de dos cuadrados superpuestos, más legible */}
+                      <rect width="13" height="13" x="9" y="9" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                  </button>
                   <button
                     onClick={() => handleOpenChat(chat.code)}
                     className="text-indigo-600 cursor-pointer hover:text-indigo-800 p-2 rounded-full hover:bg-indigo-50 transition duration-150 ml-4 flex items-center justify-center"
