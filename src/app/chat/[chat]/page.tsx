@@ -385,15 +385,26 @@ export default function ChatPage() {
             {/* 🎙️ Botón para Grabar/Detener Audio */}
             <button
               onClick={isRecording ? stopRecording : startRecording}
-              className={`p-3 cursor-pointer rounded-xl transition duration-200 ${isRecording
-                ? "bg-red-500 text-white hover:bg-red-600 animate-pulse"
-                : "bg-gray-200 text-gray-600 hover:bg-gray-300"
-                }`}
+              className={`p-3 cursor-pointer rounded-xl transition duration-200 
+    ${isRecording
+                  ? "bg-red-500 text-white hover:bg-red-600 animate-pulse"
+                  : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                }
+    ${(!!imageFile || (!!audioBlob && !isRecording)) ? "opacity-50 cursor-not-allowed" : ""}`
+              }
               title={isRecording ? "Detener Grabación" : "Grabar Audio"}
+              disabled={!!imageFile || (!!audioBlob && !isRecording)}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d={isRecording ? "M20 7v10a3 3 0 01-3 3H7a3 3 0 01-3-3V7a3 3 0 013-3h10a3 3 0 013 3z" : "M19 11a7 7 0 01-7 7v0A7 7 0 015 11V7a7 7 0 0114 0z"} />
-                {!isRecording && <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v12" />}
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="currentColor" viewBox="0 0 90 90" stroke="currentColor" strokeWidth={2}>
+                {isRecording ? (
+                  <rect x="25" y="25" width="40" height="40" rx="4" fill="currentColor" stroke="none" />
+                ) : (
+                  <g transform="translate(0 0) scale(1 1)">
+                    <path d="M 45 60.738 L 45 60.738 c -10.285 0 -18.7 -8.415 -18.7 -18.7 V 18.7 C 26.3 8.415 34.715 0 45 0 h 0 c 10.285 0 18.7 8.415 18.7 18.7 v 23.337 C 63.7 52.322 55.285 60.738 45 60.738 z" />
+                    <path d="M 45 89.213 c -1.712 0 -3.099 -1.387 -3.099 -3.099 V 68.655 c 0 -1.712 1.388 -3.099 3.099 -3.099 c 1.712 0 3.099 1.387 3.099 3.099 v 17.459 C 48.099 87.826 46.712 89.213 45 89.213 z" />
+                    <path d="M 55.451 90 H 34.549 c -1.712 0 -3.099 -1.387 -3.099 -3.099 s 1.388 -3.099 3.099 -3.099 h 20.901 c 1.712 0 3.099 1.387 3.099 3.099 S 57.163 90 55.451 90 z" />
+                  </g>
+                )}
               </svg>
             </button>
 
