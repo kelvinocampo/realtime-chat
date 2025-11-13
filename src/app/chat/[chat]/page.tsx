@@ -13,6 +13,7 @@ interface Message {
   message: string;
   roomId?: string;
   image?: string;
+  audio?: string;
 }
 
 // --- Componente Principal ---
@@ -27,23 +28,83 @@ export default function ChatPage() {
   const [chat, setChat] = useState<Message[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
 
-  const handleGoBack = () => {
-    router.push('/');
-  };
 
+  // 💡 NUEVOS ESTADOS DE AUDIO
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+
+  // 💡 NUEVAS REFS DE AUDIO
   const socketRef = useRef<Socket | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null); // Referencia al MediaRecorder
+  const audioStreamRef = useRef<MediaStream | null>(null); // Referencia al Stream de audio
+  const audioChunksRef = useRef<Blob[]>([]); // Array para guardar los fragmentos de audio
 
   const addMessage = useCallback((msg: Message) => {
     setChat((prev) => [...prev, msg]);
   }, []);
+
+  const handleGoBack = () => {
+    router.push('/');
+  };
 
   const handleRemoveImage = () => {
     setImageFile(null);
     if (fileInputRef.current) {
       // 💡 Limpiar el valor para permitir seleccionar la misma imagen de nuevo
       fileInputRef.current.value = '';
+    }
+  };
+
+  // 💡 Función para ELIMINAR el audio de la vista previa
+  const handleRemoveAudio = () => {
+    setAudioBlob(null);
+  };
+
+  // --- LÓGICA DE GRABACIÓN DE AUDIO ---
+
+  // 💡 Iniciar la Grabación
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioStreamRef.current = stream;
+      audioChunksRef.current = [];
+
+      // 💡 Asegurarse de que el formato de audio sea aceptado
+      const options = { mimeType: 'audio/webm' };
+      const recorder = new MediaRecorder(stream, options);
+
+      recorder.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
+
+      recorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        setAudioBlob(audioBlob);
+        setIsRecording(false);
+      };
+
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+      setAudioBlob(null); // Limpiar cualquier audio anterior
+    } catch (error) {
+      console.error("Error al acceder al micrófono:", error);
+      alert("No se pudo acceder al micrófono. Asegúrate de dar los permisos.");
+      setIsRecording(false);
+    }
+  };
+
+  // 💡 Detener la Grabación
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    // Detener las pistas de la MediaStream para liberar el micrófono
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach(track => track.stop());
+      audioStreamRef.current = null;
     }
   };
 
@@ -67,6 +128,7 @@ export default function ChatPage() {
     }
 
     return () => {
+      stopRecording();
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
@@ -96,44 +158,82 @@ export default function ChatPage() {
   const sendMessage = () => {
     const currentSocket = socketRef.current;
 
-    if ((!message.trim() && !imageFile) || !currentSocket) {
+    console.log('a');
+
+    // 1. Verificación Inicial: Debe haber contenido (texto, imagen, o audio) para enviar.
+    if ((!message.trim() && !imageFile && !audioBlob) || !currentSocket) {
       return;
     }
 
-    if (imageFile) {
-      const reader = new FileReader();
-      reader.readAsDataURL(imageFile);
+    // El objeto base del mensaje. El texto siempre se incluye (puede estar vacío).
+    const baseMessage: Message = {
+      message: message.trim(),
+      user: userId,
+      roomId
+    };
 
-      reader.onload = () => {
-        const base64Image = reader.result as string;
 
-        const newMsg: Message = {
-          message: message.trim(),
-          user: userId,
-          roomId,
-          image: base64Image // Enviar Base64 al backend
+    // Variable para rastrear la imagen codificada
+    let base64Image: string | undefined = undefined;
+
+    // Función central que realiza el envío a través de Socket.IO
+    const finalSend = (finalMsg: Message) => {
+      currentSocket.emit("send_message", finalMsg);
+      addMessage(finalMsg);
+
+      // Limpiar la interfaz de usuario después del envío
+      setMessage("");
+      setImageFile(null);
+      setAudioBlob(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    // ----------------------------------------------------
+    // 3. Manejo de Audio (si existe)
+    // Se ejecuta al final del flujo, ya sea después de la imagen o inmediatamente.
+    const handleAudio = (msgWithImage: Message) => {
+      if (audioBlob) {
+        const audioReader = new FileReader();
+        audioReader.readAsDataURL(audioBlob);
+
+        audioReader.onload = () => {
+          const base64Audio = audioReader.result as string;
+          finalSend({ ...msgWithImage, audio: base64Audio });
         };
 
-        currentSocket.emit("send_message", newMsg);
-        addMessage(newMsg);
+        audioReader.onerror = (error) => {
+          console.error("Error al leer el audio:", error);
+          // Si falla el audio, envía el mensaje sin él.
+          finalSend(msgWithImage);
+        };
+      } else {
+        // Si no hay audio, envía el mensaje tal como está (con o sin imagen/texto).
+        finalSend(msgWithImage);
+      }
+    };
+    // ----------------------------------------------------
 
-        // Limpiar después de enviar
-        setMessage("");
-        setImageFile(null);
-        if (fileInputRef.current) fileInputRef.current.value = '';
+    // 2. Manejo de Imagen (si existe)
+    if (imageFile) {
+      const imageReader = new FileReader();
+      imageReader.readAsDataURL(imageFile);
+
+      imageReader.onload = () => {
+        base64Image = imageReader.result as string;
+        // Pasa el mensaje con la imagen al siguiente handler (audio)
+        handleAudio({ ...baseMessage, image: base64Image });
       };
 
-      reader.onerror = (error) => {
-        console.error("Error al leer el archivo:", error);
+      imageReader.onerror = (error) => {
+        console.error("Error al leer la imagen:", error);
+        // Si falla la imagen, pasa el mensaje sin ella al handler de audio.
+        handleAudio(baseMessage);
       };
 
-    } else if (message.trim()) {
-      // 2. Solo mensaje de texto
-      const newMsg: Message = { message: message.trim(), user: userId, roomId };
-
-      currentSocket.emit("send_message", newMsg);
-      addMessage(newMsg);
-      setMessage("");
+      // 4. Solo Texto y/o Audio (si NO hay imagen)
+    } else {
+      // Pasa el mensaje base (solo texto) directamente al handler de audio.
+      handleAudio(baseMessage);
     }
   };
 
@@ -169,6 +269,8 @@ export default function ChatPage() {
           ) : (
             chat.map((msg, i) => {
               const isOwn = msg.user === userId;
+              // Determina si hay algún contenido multimedia para aplicar margen al texto posterior
+              const hasMedia = msg.image || msg.audio;
 
               return (
                 <div
@@ -186,17 +288,36 @@ export default function ChatPage() {
                         {msg.user.length > 15 ? msg.user.slice(0, 15) + "..." : msg.user}
                       </div>
                     )}
-                    {/* 🖼️ MOSTRAR IMAGEN (si existe) */}
-                    {msg.image && (<img
-                      src={msg.image}
-                      alt="Mensaje con imagen"
-                      className="rounded-lg max-w-full min-h-20 h-auto"
-                      style={{ maxHeight: '200px' }}
-                    />)}
 
-                    {/* Mostrar texto solo si existe o si no hay imagen (para evitar un espacio vacío) */}
-                    {msg.message.trim() || !msg.image ? (
-                      <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                    {/* 🖼️ MOSTRAR IMAGEN (si existe) */}
+                    {msg.image && (
+                      <img
+                        src={msg.image}
+                        alt="Mensaje con imagen"
+                        // 💡 AÑADIDO mb-2 para separarlo del audio/texto
+                        className="rounded-lg w-full max-w-[200px] min-w-4 mb-2 h-auto min-h-10"
+                      />
+                    )}
+
+                    {/* 🎙️ MOSTRAR AUDIO (si existe) */}
+                    {msg.audio && (
+                      <audio
+                        controls
+                        // 💡 AJUSTADO EL MIN-WIDTH y AÑADIDO mb-2 para separarlo del texto
+                        className="w-full min-w-[300px] mb-2"
+                      >
+                        <source src={msg.audio} type="audio/webm" />
+                        Tu navegador no soporta el elemento de audio.
+                      </audio>
+                    )}
+
+                    {/* Mostrar texto solo si existe */}
+                    {msg.message.trim() ? (
+                      <p
+                        className={`text-sm whitespace-pre-wrap ${hasMedia && 'mt-1'}`}
+                      >
+                        {msg.message}
+                      </p>
                     ) : null}
                   </div>
                 </div>
@@ -225,6 +346,22 @@ export default function ChatPage() {
               </button>
             </div>
           )}
+
+          {/* 🎙️ VISTA PREVIA DEL AUDIO GRABADO */}
+          {audioBlob && (
+            <div className="mb-3 p-3 bg-gray-100 rounded-lg flex items-center justify-between border border-gray-200">
+              <div className="flex items-center gap-3 w-full">
+                <audio controls src={URL.createObjectURL(audioBlob)} className="flex-1 min-w-0" />
+              </div>
+              <button
+                onClick={handleRemoveAudio}
+                className="text-red-500 cursor-pointer hover:text-red-700 transition ml-3"
+              >
+                ❌
+              </button>
+            </div>
+          )}
+
           <div className="flex gap-3">
 
             {/* 📁 Botón para seleccionar archivo (SVG) */}
@@ -245,21 +382,38 @@ export default function ChatPage() {
               </svg>
             </button>
 
+            {/* 🎙️ Botón para Grabar/Detener Audio */}
+            <button
+              onClick={isRecording ? stopRecording : startRecording}
+              className={`p-3 cursor-pointer rounded-xl transition duration-200 ${isRecording
+                ? "bg-red-500 text-white hover:bg-red-600 animate-pulse"
+                : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                }`}
+              title={isRecording ? "Detener Grabación" : "Grabar Audio"}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d={isRecording ? "M20 7v10a3 3 0 01-3 3H7a3 3 0 01-3-3V7a3 3 0 013-3h10a3 3 0 013 3z" : "M19 11a7 7 0 01-7 7v0A7 7 0 015 11V7a7 7 0 0114 0z"} />
+                {!isRecording && <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v12" />}
+              </svg>
+            </button>
+
             <input
-              className="flex-1 border border-gray-300 rounded-xl p-3 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow outline-none"
+              className="flex-1 border border-gray-300 rounded-xl p-3
+              focus:ring-indigo-500 focus:border-indigo-500 transition-shadow outline-none
+              disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
               placeholder="Escribe un mensaje..."
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && sendMessage()}
               autoFocus
+              disabled={isRecording}
             />
             <button
               onClick={sendMessage}
-              disabled={!message.trim() && !imageFile}
-              className={`bg-indigo-600 text-white font-semibold px-5 rounded-xl transition-all duration-200 ${!message.trim() && !imageFile
-                ? "opacity-50 cursor-not-allowed"
-                : "hover:bg-indigo-700 shadow-md cursor-pointer"
-                }`}
+              disabled={(!message.trim() && !imageFile && !audioBlob)}
+              className="bg-indigo-600 text-white font-semibold px-5 rounded-xl transition-all duration-200 
+              disabled:opacity-50 disabled:cursor-not-allowed 
+              hover:bg-indigo-700 shadow-md cursor-pointer"
             >
               Enviar
             </button>
