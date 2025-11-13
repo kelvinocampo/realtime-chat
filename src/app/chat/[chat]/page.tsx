@@ -5,7 +5,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 import { useParams, useRouter } from "next/navigation";
 
-const URL_SOCKET = "https://backendchat-production-2bcd.up.railway.app";
+const URL_SOCKET = process.env.NEXT_PUBLIC_API_URL || "";
 
 // --- Tipos ---
 interface Message {
