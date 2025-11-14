@@ -391,7 +391,7 @@ export default function ChatPage() {
     ${(!!audioBlob && !isRecording) ? "opacity-50 cursor-not-allowed" : ""}`
               }
               title={isRecording ? "Detener Grabación" : "Grabar Audio"}
-              disabled={!!imageFile || (!!audioBlob && !isRecording)}
+              disabled={!!audioBlob && !isRecording}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="currentColor" viewBox="0 0 90 90" stroke="currentColor" strokeWidth={2}>
                 {isRecording ? (
