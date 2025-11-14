@@ -388,7 +388,7 @@ export default function ChatPage() {
                   ? "bg-red-500 text-white hover:bg-red-600 animate-pulse"
                   : "bg-gray-200 text-gray-600 hover:bg-gray-300"
                 }
-    ${(!!imageFile || (!!audioBlob && !isRecording)) ? "opacity-50 cursor-not-allowed" : ""}`
+    ${(!!audioBlob && !isRecording) ? "opacity-50 cursor-not-allowed" : ""}`
               }
               title={isRecording ? "Detener Grabación" : "Grabar Audio"}
               disabled={!!imageFile || (!!audioBlob && !isRecording)}
